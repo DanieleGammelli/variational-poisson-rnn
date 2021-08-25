@@ -1,0 +1,18 @@
+ STATION 426 - return
+---------------
+
+| TRAIN |  RMSE: 5.62, MAE: 3.36, R^2: 0.87
+
+| VALIDATION |  RMSE: 6.06, MAE: 3.94, R^2: 0.85
+
+| TEST |  RMSE: 3.57, MAE: 2.25, R^2: 0.77
+
+ STATION 426 - pickup
+---------------
+
+| TRAIN |  RMSE: 5.63, MAE: 3.28, R^2: 0.87
+
+| VALIDATION |  RMSE: 6.64, MAE: 4.11, R^2: 0.83
+
+| TEST |  RMSE: 3.66, MAE: 2.27, R^2: 0.75
+
