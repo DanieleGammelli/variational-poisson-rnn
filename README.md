@@ -13,7 +13,8 @@ pip install -r requirements.txt
 ## Contents
 
 * `src/algos/vprnn.py`: PyTorch implementation of VP-RNN and MOVP-RNN modules (Section 3.2).
-* `src/algos/inventory_decision.py`: implementation of queuing model for inventory management (Section 3.1).
+* `src/algos/inventory_decision_hourly.py`: implementation of queuing model for inventory management with 60-min interval (Section 3.1).
+* `src/algos/inventory_decision_quarterly.py`: implementation of queuing model for inventory management with finer aggregation levels:  15-, 30-min intervals.
 * `src/misc/`: helper functions.
 * `data/`: csv files for NYC experiments.
 * `saved_files/`: directory for saving results, logging, etc.
@@ -32,6 +33,8 @@ model arguments:
     --no-train      disables training process (default: False, i.e. train)
     --no-predict    disables prediction process (default: False, i.e. generate predictions)
     --no-decision   disables decision model (default: False, i.e. run queueing model)
+    --benchmark     enables benchmark decision (default: False, i.e. disables benchmark decision calculation)
+    
     
 data arguments:
     --stations       list of station IDs on which to run pipeline
@@ -50,11 +53,19 @@ During execution, this will store the following:
 * Prediction and Optimization performance in `saved_files/{15,30,60}min/results/`
 * Predicted demand vectors in `saved_files/{15,30,60}min/predicted_demand/`
 * Qualitative visualization of demand predictions in `saved_files/{15,30,60}min/images/`
+* Inventory decision in `saved_files/{15,30,60}min/inventory_decisions/`
 
-2. TODO add any additional steps for decisions
+2. To only generate inventory decisions with different pre-trained demand predictions for comparison, on e.g. station 426 and 229, run the following:
 ```
-python
+python run_vprnn.py --stations 426 229 --no-train 1 --no-predict 1 --benchmark
 ```
+
+Note that the inventory decision model needs to read pre-trained demand predictions stored in `saved_files/{15,30,60}min/predicted_demand/`. Make sure there are predicted demand vectors stored in this directory.
+
+During execution, this will store the following:
+* Inventory decision in `saved_files/{15,30,60}min/inventory_decisions/`
+* Optimization performance in `saved_files/{15,30,60}min/results/optimization`
+
 
 ## Credits
 This work was conducted as a joint effort with [Yihua Wang*](https://www.professors.wi.tum.de/en/log/team/yihua-wang-msc/), [Dennis Prak*](https://people.utwente.nl/d.r.j.prak), [Filipe Rodrigues'](http://fprodrigues.com/), [Stefan Minner*](https://www.professors.wi.tum.de/log/team/minner/) and [Francisco C. Pereira'](http://camara.scripts.mit.edu/home/), at Technical University of Denmark' and Technical University of Munich*. 

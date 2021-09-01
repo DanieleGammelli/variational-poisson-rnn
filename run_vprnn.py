@@ -19,7 +19,8 @@ import datetime
 from workalendar.usa.new_york import NewYork
 from pyro.infer import SVI, Trace_ELBO, Predictive
 from src.algos.vprnn import VPRNN
-from src.algos.inventory_decision import get_inventory_decisions
+import src.algos.inventory_decision_hourly as idh
+import src.algos.inventory_decision_quarterly as idq
 from src.misc.utils import get_performance_metrics, Trace_ELBO_Wrapper, read_and_preprocess_data, get_results, get_inventory_decision_evaluation_results
 
 
@@ -49,10 +50,10 @@ parser.add_argument('--interval', type=int, default=60, metavar='S',
                     help='defines temporal aggregation (defaul 60min)')
 
 # Queuing model parameters
-parser.add_argument('--sample-time', type=int, default=0, metavar='N',
-                    help='number of posterior predictive samples (default: 0)')
-parser.add_argument('--no-decision', type=bool, default=False,
+parser.add_argument('--no-decision', default=False, action='store_true',
                     help='disables decision model')
+parser.add_argument('--benchmark', action='store_true',
+                    help='enables benchmark decision model')
 
 # Parse and preprocess input arguments
 args = parser.parse_args()
@@ -72,10 +73,19 @@ torch.manual_seed(args.seed)
 device = torch.device("cuda" if args.cuda else "cpu")
 
 if args.stations[0] == 'all':
-    args.stations = [151, 168, 285, 293, 3263, 327, 3435, 358, 359, 3641,
-                     368, 3711, 387, 402, 426, 435, 445, 446, 453, 462, 482, 491,
-                     497, 499, 504, 514, 519, 229
+    args.stations = [128, 151, 168, 229, 285, 293, 327, 358, 359, 368, 
+                    387, 402, 426, 405, 435, 445, 446, 453, 462, 482, 
+                    491, 497, 499, 504, 514, 519, 3263, 3435, 3641, 3711
                     ]
+
+# define test dates
+start_date = datetime.date(2018,11,1)
+end_date = datetime.date(2018,12,31)
+date_list = []
+for n in range((end_date - start_date).days + 1):
+    dt = start_date + datetime.timedelta(days=n)
+    date_list.append(dt)
+
 # loop over selected stations
 for station in args.stations:
     try:
@@ -142,24 +152,30 @@ for station in args.stations:
                 get_results(model=vprnn, X=X_tensor_i, y=y_tensor_i, station=station, results_path=args.directory, interval=args.interval,
                             model_type="so_rnn", labels=[label], write_mode="w" if i==0 else "a")
 
+
 ############################################################
-############################################################
-########## TODO: Fix decision pipeline from here ###########
-############################################################
+################ decision pipeline from here ###############
 ############################################################
 
-        # define test dates
-        cal = NewYork()
-        start_date = datetime.date(2018,11,1)
-        end_date = datetime.date(2018,12,31)
-        date_list = []
-        for n in range((end_date - start_date).days + 1):
-            dt = start_date + datetime.timedelta(days=n)
-            date_list.append(dt)
-        # if decision==True, compute inventory decisions through queuing model
+        # if decision==True, compute inventory decisions through queuing model (Section 3.1)
         if args.decision:
-            inventory_decision_dict = \
-                get_inventory_decisions(station_id=station, date_list=date_list, 
-                hour_range=range(0,24), model_type='so_rnn', result_dir=args.directory)
+            # if interval==60min, use hourly predictions as inputs
+            if args.interval == 60:
+                idh.get_rnn_inventory_decisions(station_id=station, date_list=date_list, hour_range=range(0,24), model_type=['so_rnn',], data_dir='data', prediction_dir=f'{args.directory}/predicted_demand/', result_dir=args.directory)
+                if args.benchmark:
+                    idh.get_rnn_inventory_decisions(station_id=station, date_list=date_list, hour_range=range(0,24), model_type=['poisson_rnn', 'lr'], data_dir='data', prediction_dir=f'{args.directory}/predicted_demand/', result_dir=args.directory)
+                    idh.get_benchmark_inventory_decisions(station, date_list, hour_range=range(0,24), data_dir='data', result_dir=args.directory)
+                print(f'Station {station} decision calculation finished!')
+                # Evaluation  
+                idh.get_inventory_decision_evaluation_results(station, date_list, hour_range=range(0,24), model_type=['so_rnn',], flag_benchmark=args.benchmark, data_dir='data', result_dir=args.directory)
+            else:
+            # interval==15min or 30min
+                idq.get_rnn_inventory_decisions(station_id=station, date_list=date_list, hour_range=range(0,24), quarter=args.interval, model_type=['so_rnn',], data_dir='data', prediction_dir=f'{args.directory}/predicted_demand/', result_dir=args.directory)
+                if args.benchmark:
+                    idq.get_rnn_inventory_decisions(station_id=station, date_list=date_list, hour_range=range(0,24), quarter=args.interval, model_type=['poisson_rnn', 'lr'], data_dir='data', prediction_dir=f'{args.directory}/predicted_demand/', result_dir=args.directory)
+                    idq.get_benchmark_inventory_decisions(station, date_list, hour_range=range(0,24), quarter=args.interval, data_dir='data', result_dir=args.directory)
+                print(f'Station {station} decision calculation finished!')
+                # Evaluation  
+                idq.get_inventory_decision_evaluation_results(station, date_list, hour_range=range(0,24), quarter=args.interval, model_type=['so_rnn',], flag_benchmark=args.benchmark, data_dir='data', result_dir=args.directory)
     except:
         pass
